@@ -29,36 +29,16 @@ Tracks actual dollar costs, not just token counts.
 
 ## Quick Start
 
-### Option 1: One-Command Setup (Recommended)
-
 ```bash
 # Clone the repo
 git clone https://github.com/hyd-evaluation/shunt-module.git
 
-# Run setup
+# Install (one command)
 cd shunt-module
-bash setup.sh --force
-```
+bash install.sh
 
-### Option 2: Manual Setup
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Test shunt module
-python3 -c "from worker import ShuntWorker; print('OK')"
-```
-
-## Setup Script Options
-
-```bash
-bash setup.sh --help        # Show all options
-bash setup.sh --force       # Auto-install without prompts
-bash setup.sh --check       # Verify existing setup
-bash setup.sh --dry-run     # Preview without changes
-bash setup.sh --verbose     # Detailed output
-bash setup.sh --uninstall   # Remove everything
+# Run evaluations
+python3 run_evals.py
 ```
 
 ## Configuration
@@ -164,6 +144,7 @@ python3 evals/quality_evals.py
 | `shunt_model.py` | Shunt model wrapper |
 | `configs/shunt_neusiscode.yaml` | Configuration |
 | `requirements.txt` | Python dependencies |
+| `install.sh` | One-command installer |
 
 ## How It Works
 
@@ -248,14 +229,14 @@ sudo apt install python3.11
 ```
 
 ### "No internet connection"
-The setup script requires internet to install dependencies. If offline:
+The installer requires internet to install dependencies. If offline:
 ```bash
 # On machine with internet
-cd ~/pb-harness-v2
-tar -czf pb-harness-deps.tar.gz venv/
+cd ~/shunt-module
+tar -czf shunt-deps.tar.gz venv/
 
 # On offline machine
-tar -xzf pb-harness-deps.tar.gz
+tar -xzf shunt-deps.tar.gz
 ```
 
 ### "Dependencies not installed"
@@ -272,13 +253,7 @@ python3 -c "from worker import ShuntWorker; print('OK')"
 
 ## API Key
 
-The default API key is included in the config. To use your own:
-
-```bash
-bash setup.sh --api-key YOUR_KEY_HERE
-```
-
-Or edit `configs/shunt_neusiscode.yaml`:
+The default API key is included in the config. To use your own, edit `configs/shunt_neusiscode.yaml`:
 
 ```yaml
 model:
