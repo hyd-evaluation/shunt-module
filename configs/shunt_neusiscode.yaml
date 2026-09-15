@@ -1,0 +1,50 @@
+# Shunt NeusisCode Configuration
+# Uses NeusisRouterModel as base with shunt interception
+# Worker model: Luna (configurable)
+
+model:
+  model_class: configs.neusis_router_model:NeusisRouterModel
+  model_name: codex/gpt-5.6-luna
+  model_kwargs:
+    api_base: https://pbtest.neusis.ai/router/v1
+    api_key: sk-55100efb9fb4a726-62bfab-89db8b81
+
+# Shunt configuration
+shunt:
+  enabled: true
+  worker_model: codex/gpt-5.6-luna  # Configurable - change this per task
+  threshold: 350  # Lines - files larger than this get intercepted
+  api_base: https://pbtest.neusis.ai/router/v1
+  api_key: sk-55100efb9fb4a726-62bfab-89db8b81
+
+# Agent configuration
+agent:
+  name: neusiscode
+  description: NeusisCode with shunt interception
+  tools:
+    - name: bash
+      description: Execute bash commands
+    - name: read
+      description: Read file contents
+    - name: write
+      description: Write file contents
+    - name: edit
+      description: Edit file contents
+
+# Environment
+environment:
+  base_dir: /testbed
+  python_version: "3.10"
+  node_version: "18"
+
+# Execution
+execution:
+  max_steps: 50
+  timeout: 600
+  retry_attempts: 3
+
+# Logging
+logging:
+  level: INFO
+  log_shunt_interceptions: true
+  log_token_usage: true
