@@ -74,24 +74,6 @@ shunt:
   threshold: 350  # Files larger than this get intercepted
 ```
 
-### Available Worker Models
-
-| Model | Input Cost | Output Cost | Speed | Quality |
-|-------|------------|-------------|-------|---------|
-| codex/gpt-5.6-luna | $1.00/1M | $6.00/1M | Fast | Good |
-| openrouter/google/gemini-3.6-flash | $0.00 | $0.00 | Fast | Good |
-| openrouter/nvidia/nemotron-3.5-lightning:free | $0.00 | $0.00 | Fast | OK |
-| openrouter/qwen/qwen3-coder | $0.50/1M | $2.00/1M | Medium | Good |
-
-### Pricing Comparison
-
-| Model | Input | Output |
-|-------|-------|--------|
-| Sol (expensive) | $2.50/1M | $15.00/1M |
-| Luna (cheap worker) | $1.00/1M | $6.00/1M |
-
-**Luna is 2.5x cheaper than Sol**
-
 ## Usage
 
 ### Python API - Bulk-Read
