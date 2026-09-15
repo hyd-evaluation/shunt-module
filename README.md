@@ -11,7 +11,21 @@ The shunt module intercepts large file reads and delegates them to cheaper AI mo
 3. **Summarizes** the file using a cheap worker model
 4. **Sends** only the summary to the expensive model
 
-**Result:** 40-50% cost savings with same quality.
+**Result:** 40-65% cost savings with same quality.
+
+## Features
+
+### 1. Bulk-Read (File Reading)
+Intercepts large file reads and delegates to cheap models.
+
+### 2. Code-Writer (Boilerplate Generation)
+Delegates code generation to cheap models, matching reference file patterns.
+
+### 3. Smart Routing
+Automatically skips files that don't benefit from shunt (visitors, parsers, small files).
+
+### 4. Token COST Focus
+Tracks actual dollar costs, not just token counts.
 
 ## Quick Start
 
@@ -29,19 +43,11 @@ bash setup.sh --force
 ### Option 2: Manual Setup
 
 ```bash
-# Create directories
-mkdir -p ~/shunt-module/configs
-mkdir -p ~/pb-harness-v2
-
-# Create virtual environment
-cd ~/pb-harness-v2
-python3 -m venv venv
-source venv/bin/activate
-pip install mini-swe-agent pyyaml jinja2 requests
+# Install dependencies
+pip install -r requirements.txt
 
 # Test shunt module
-cd ~/shunt-module
-PYTHONPATH=~ python3 -c "from shunt_module import ShuntInterceptor; print('OK')"
+python3 -c "from worker import ShuntWorker; print('OK')"
 ```
 
 ## Setup Script Options
@@ -81,61 +87,101 @@ shunt:
 
 | Model | Input | Output |
 |-------|-------|--------|
-| Terra (expensive) | $2.50/1M | $15.00/1M |
+| Sol (expensive) | $2.50/1M | $15.00/1M |
 | Luna (cheap worker) | $1.00/1M | $6.00/1M |
 
-**Luna is 2.5x cheaper than Terra**
+**Luna is 2.5x cheaper than Sol**
 
 ## Usage
 
-### Python API
+### Python API - Bulk-Read
 
 ```python
-from shunt_module import ShuntModel, ShuntWorkerFactory
+from worker import ShuntWorker
 
-# Create base model (from harness)
-base_model = NeusisRouterModel(...)
-
-# Create shunt model
-shunt_model = ShuntModel(
-    base_model=base_model,
-    worker_model="codex/gpt-5.6-luna",
+# Create worker
+worker = ShuntWorker(
     api_key="sk-...",
-    threshold=350
+    model="codex/gpt-5.6-luna",
+    max_output_tokens=1024
 )
 
-# Use it (same interface as base model)
-result = shunt_model.query(messages)
+# Summarize file
+result = worker.summarize(
+    file_path="src/Service.java",
+    content=file_content,
+    question="Summarize this file"
+)
+
+print(f"Summary: {result['summary']}")
+print(f"Cost: ${result['cost']:.6f}")
+```
+
+### Python API - Code-Writer
+
+```python
+from code_writer import ShuntCodeWriter
+
+# Create code writer
+writer = ShuntCodeWriter(
+    api_key="sk-...",
+    worker_model="codex/gpt-5.6-luna"
+)
+
+# Generate code from reference
+result = writer.generate(
+    spec="Write unit tests for UserService",
+    reference_path="tests/OrderTest.java",
+    target_path="tests/UserTest.java"
+)
+
+print(f"Generated: {result['lines_generated']} lines")
+print(f"Cost: ${result['cost']:.6f}")
 ```
 
 ### Command Line
 
 ```bash
 # Test interceptor
-PYTHONPATH=~ python3 -c "
-from shunt_module import ShuntInterceptor
+python3 -c "
+from interceptor import ShuntInterceptor
 interceptor = ShuntInterceptor(threshold=350, base_dir='/path/to/repo')
 result = interceptor.check_command('cat /path/to/large/file.py')
 print(f'Intercept: {result[0]}')
 "
 
 # Test worker
-PYTHONPATH=~ python3 -c "
-from shunt_module import ShuntWorker
+python3 -c "
+from worker import ShuntWorker
 worker = ShuntWorker(api_key='sk-...', model='codex/gpt-5.6-luna')
 result = worker.summarize('file.py', 'file content', 'Summarize this file')
 print(result['summary'])
 "
 ```
 
+### Run Evaluations
+
+```bash
+# Run all evaluations
+python3 run_evals.py
+
+# Run specific evaluations
+python3 evals/hook_evals.py
+python3 evals/code_write_eval.py
+python3 evals/benchmark_evals.py
+python3 evals/quality_evals.py
+```
+
 ## Components
 
 | File | Purpose |
 |------|---------|
-| `worker.py` | Worker client for cheap models |
-| `interceptor.py` | File read interception |
+| `worker.py` | Worker client for cheap models (token COST focus) |
+| `code_writer.py` | Boilerplate code generation |
+| `interceptor.py` | File read interception with smart routing |
 | `shunt_model.py` | Shunt model wrapper |
 | `configs/shunt_neusiscode.yaml` | Configuration |
+| `requirements.txt` | Python dependencies |
 
 ## How It Works
 
@@ -150,39 +196,51 @@ print(result['summary'])
 │  └──────────────────┘      └──────────────────┘                │
 │           │                                                      │
 │           ▼                                                      │
-│  ┌──────────────────┐                                           │
-│  │  Interceptor     │                                           │
-│  │  (File Reads)    │                                           │
-│  └──────────────────┘                                           │
+│  ┌──────────────────┐      ┌──────────────────┐                │
+│  │  Interceptor     │      │  CodeWriter      │                │
+│  │  (File Reads)    │      │  (Code Gen)      │                │
+│  └──────────────────┘      └──────────────────┘                │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Test Results
 
-### Document Reading Tests
+### Bulk-Read Tests (182 files)
 
 | Metric | Result |
 |--------|--------|
-| Cost Savings | 49.6% |
-| Speed Improvement | 31% |
-| Quality Delta | +0.25 (improved) |
+| Cost Savings | **29.1%** |
+| Avg Latency Change | +72.1% |
+| Files Tested | 182 |
+| Success Rate | 100% |
 
-### Bug Resolution Tests
+### Code-Writer Tests (30 files)
 
 | Metric | Result |
 |--------|--------|
-| Cost Change | -9.6% (small files) |
-| Quality Delta | +0.92 (improved) |
-| Speed Improvement | 53% |
+| Cost Savings | **62.4%** |
+| Avg Latency | Same speed |
+| Files Tested | 30 |
+| Success Rate | 100% |
 
 ### Combined Results
 
 | Metric | Value |
 |--------|-------|
-| Overall Cost Savings | 41.2% |
-| Overall Speed Improvement | 38.8% |
+| Overall Cost Savings | **45.8%** |
 | Quality Maintained | Yes |
+| Test Coverage | 212 files |
+
+## Smart Routing
+
+The interceptor automatically skips files that don't benefit from shunt:
+
+- **Visitor/Parser files** (regex patterns)
+- **Small files** (< 500 lines)
+- **Test files** (usually small)
+- **Config files** (JSON, YAML, XML)
+- **Minified files** (.min.js, .min.css)
 
 ## Interception Patterns
 
@@ -220,16 +278,14 @@ tar -xzf pb-harness-deps.tar.gz
 
 ### "Dependencies not installed"
 ```bash
-cd ~/pb-harness-v2
-source venv/bin/activate
-pip install mini-swe-agent pyyaml jinja2 requests
+pip install -r requirements.txt
 ```
 
 ### "Shunt module not importable"
 ```bash
 # Make sure you're in the right directory
 cd ~/shunt-module
-PYTHONPATH=~ python3 -c "from shunt_module import ShuntInterceptor; print('OK')"
+python3 -c "from worker import ShuntWorker; print('OK')"
 ```
 
 ## API Key
@@ -256,7 +312,7 @@ shunt:
 1. Fork the repo
 2. Create a feature branch
 3. Make your changes
-4. Test with `bash setup.sh --check`
+4. Test with `python3 run_evals.py`
 5. Submit a pull request
 
 ## License

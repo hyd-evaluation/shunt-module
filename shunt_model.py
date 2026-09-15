@@ -10,8 +10,8 @@ import re
 import time
 from typing import Any, Optional
 
-from .interceptor import ShuntInterceptor
-from .worker import ShuntWorker, ShuntWorkerFactory
+from interceptor import ShuntInterceptor
+from worker import ShuntWorker, ShuntWorkerFactory
 
 logger = logging.getLogger("shunt_model")
 
