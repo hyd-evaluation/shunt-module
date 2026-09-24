@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from worker import ShuntWorker, calculate_cost
 
-API_KEY = os.environ.get("NEUSIS_API_KEY", "sk-55100efb9fb4a726-62bfab-89db8b81")
+API_KEY = os.environ.get("NEUSIS_API_KEY", "")
 API_BASE = "https://pbtest.neusis.ai/router/v1"
 
 # Test scenarios

@@ -17,7 +17,7 @@ class TestCodeWriteEvals(unittest.TestCase):
     """Test code generation evaluation"""
     
     def setUp(self):
-        self.api_key = os.environ.get("NEUSIS_API_KEY", "sk-55100efb9fb4a726-62bfab-89db8b81")
+        self.api_key = os.environ.get("NEUSIS_API_KEY", "")
         self.writer = ShuntCodeWriter(
             api_key=self.api_key,
             worker_model="codex/gpt-5.6-luna",

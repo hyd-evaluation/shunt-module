@@ -13,8 +13,8 @@ from datetime import datetime
 from typing import List, Dict, Any
 
 # Configuration
-API_KEY = "sk-55100efb9fb4a726-62bfab-89db8b81"
-API_BASE = "https://pbtest.neusis.ai/router/v1"
+API_KEY = os.environ.get("NEUSIS_API_KEY", "")
+API_BASE = os.environ.get("NEUSIS_API_BASE", "https://pbtest.neusis.ai/router/v1")
 
 WORKER_MODEL = "codex/gpt-5.6-luna"
 EXPENSIVE_MODEL = "codex/gpt-5.6-sol"
@@ -25,8 +25,8 @@ PRICING = {
     "codex/gpt-5.6-sol": {"input": 2.50, "output": 15.00},
 }
 
-REPO_PATH = "/home/varun/shardingsphere"
-RESULTS_DIR = "/home/varun/shunt-module/results"
+REPO_PATH = os.environ.get("SHUNT_REPO_PATH", "")
+RESULTS_DIR = os.environ.get("SHUNT_RESULTS_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "results"))
 MAX_CONCURRENT = 5
 TIMEOUT = 180
 

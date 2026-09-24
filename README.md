@@ -253,15 +253,20 @@ python3 -c "from worker import ShuntWorker; print('OK')"
 
 ## API Key
 
-The default API key is included in the config. To use your own, edit `configs/shunt_neusiscode.yaml`:
+No API key is stored in this repository. Set yours via environment variable before running:
 
-```yaml
-model:
-  model_kwargs:
-    api_key: YOUR_KEY_HERE
+```bash
+export NEUSIS_API_KEY="your-key-here"
+```
 
-shunt:
-  api_key: YOUR_KEY_HERE
+Then run evaluations or use the Python API. For config-based setups, the same variable is read from `configs/shunt_neusiscode.yaml` placeholders (`api_key: ""`).
+
+Required environment variables for test scripts:
+
+```bash
+export NEUSIS_API_KEY="your-key-here"
+export SHUNT_REPO_PATH="/path/to/your/repo"        # for parallel_test.py / continue_test.py
+export SHUNT_RESULTS_DIR="./results"               # optional, defaults to ./results
 ```
 
 ## Contributing

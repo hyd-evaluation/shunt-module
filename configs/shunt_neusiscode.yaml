@@ -1,13 +1,15 @@
 # Shunt NeusisCode Configuration
-# Uses NeusisRouterModel as base with shunt interception
 # Worker model: Luna (configurable)
+#
+# NOTE: model_class originally referenced configs.neusis_router_model:NeusisRouterModel,
+# which is not part of this standalone repo. For standalone use, instantiate
+# shunt_model.ShuntModel directly (see README).
 
 model:
-  model_class: configs.neusis_router_model:NeusisRouterModel
   model_name: codex/gpt-5.6-luna
   model_kwargs:
     api_base: https://pbtest.neusis.ai/router/v1
-    api_key: sk-55100efb9fb4a726-62bfab-89db8b81
+    api_key: ""  # Set via NEUSIS_API_KEY environment variable
 
 # Shunt configuration
 shunt:
@@ -15,7 +17,7 @@ shunt:
   worker_model: codex/gpt-5.6-luna  # Configurable - change this per task
   threshold: 350  # Lines - files larger than this get intercepted
   api_base: https://pbtest.neusis.ai/router/v1
-  api_key: sk-55100efb9fb4a726-62bfab-89db8b81
+  api_key: ""  # Set via NEUSIS_API_KEY environment variable
 
 # Agent configuration
 agent:

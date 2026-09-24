@@ -26,8 +26,8 @@ except ImportError:
 # Configuration
 # ============================================================
 
-API_KEY = "sk-55100efb9fb4a726-62bfab-89db8b81"
-API_BASE = "https://pbtest.neusis.ai/router/v1"
+API_KEY = os.environ.get("NEUSIS_API_KEY", "")
+API_BASE = os.environ.get("NEUSIS_API_BASE", "https://pbtest.neusis.ai/router/v1")
 
 EXPENSIVE_MODEL = "codex/gpt-5.6-sol"
 CHEAP_MODEL = "codex/gpt-5.6-luna"
@@ -38,12 +38,12 @@ EXPENSIVE_OUTPUT_PRICE = 15.00
 CHEAP_INPUT_PRICE = 1.00
 CHEAP_OUTPUT_PRICE = 6.00
 
-REPO_PATH = "/home/varun/shardingsphere"
+REPO_PATH = os.environ.get("SHUNT_REPO_PATH", "")
 MIN_LINES = 350
 MAX_CONCURRENT = 10
 MAX_RETRIES = 3
 TIMEOUT = 180
-RESULTS_DIR = "/home/varun/shunt-module/results"
+RESULTS_DIR = os.environ.get("SHUNT_RESULTS_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "results"))
 
 # ============================================================
 # Utility Functions
@@ -558,6 +558,11 @@ def generate_final_report(results: List[Dict]):
 # ============================================================
 
 def main():
+    if not REPO_PATH:
+        print("ERROR: Set SHUNT_REPO_PATH environment variable to your repository path.")
+        print('Example: export SHUNT_REPO_PATH="/path/to/repo"')
+        return
+
     print("="*70)
     print("PARALLEL SHUNT TEST RUNNER")
     print("="*70)

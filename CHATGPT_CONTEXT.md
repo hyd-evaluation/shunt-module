@@ -170,7 +170,7 @@ if file >= 350 lines: BLOCK (redirect to bulk-reader)
 - **Repo tested:** Apache ShardingSphere (199K Java lines)
 - **GitHub:** https://github.com/hyd-evaluation/shunt-module
 - **API:** Neusis Router at https://pbtest.neusis.ai/router/v1
-- **API Key:** sk-55100efb9fb4a726-62bfab-89db8b81
+- **API Key:** Set via `NEUSIS_API_KEY` environment variable (never commit keys)
 
 ---
 
