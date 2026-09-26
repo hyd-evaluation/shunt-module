@@ -15,136 +15,118 @@ logger = logging.getLogger("shunt_interceptor")
 
 class ShuntInterceptor:
     """Intercepts file read commands and delegates large files to worker models"""
-    
-    # Patterns that read files
+
     FILE_READ_PATTERNS = [
-        (r'\bcat\s+([^\s|&;]+)', 'cat'),
-        (r'\bhead\s+(?:-\d+\s+|\d+\s+)([^\s|&;]+)', 'head'),
-        (r'\btail\s+(?:-\d+\s+|\d+\s+)([^\s|&;]+)', 'tail'),
-        (r'\bless\s+([^\s|&;]+)', 'less'),
-        (r'\bmore\s+([^\s|&;]+)', 'more'),
-        (r'\bsed\s+.*<\s*([^\s|&;]+)', 'sed'),
-        (r'\bawk\s+.*<\s*([^\s|&;]+)', 'awk'),
-        (r'\bview\s+([^\s|&;]+)', 'view'),
-        (r'\bnvim\s+([^\s|&;]+)', 'nvim'),
-        (r'\bvi\s+([^\s|&;]+)', 'vi'),
+        (r'\bcat\s+([^\s|&;]+)', 'cat', False),
+        (r'\bhead\s+(?:-(\d+)|(\d+))\s+([^\s|&;]+)', 'head', True),
+        (r'\btail\s+(?:-(\d+)|(\d+))\s+([^\s|&;]+)', 'tail', True),
+        (r'\bhead\s+([^\s|&;]+)', 'head', False),
+        (r'\btail\s+([^\s|&;]+)', 'tail', False),
+        (r'\bless\s+([^\s|&;]+)', 'less', False),
+        (r'\bmore\s+([^\s|&;]+)', 'more', False),
+        (r'\bsed\s+.*<\s*([^\s|&;]+)', 'sed', False),
+        (r'\bawk\s+.*<\s*([^\s|&;]+)', 'awk', False),
+        (r'\bview\s+([^\s|&;]+)', 'view', False),
+        (r'\bnvim\s+([^\s|&;]+)', 'nvim', False),
+        (r'\bvi\s+([^\s|&;]+)', 'vi', False),
     ]
-    
-    # File types that don't benefit from shunt (visitor/parser patterns)
+
+    DEFAULT_HEAD_TAIL_LINES = 10
+
     SKIP_PATTERNS = [
         r'.*Visitor\.java$',
         r'.*Parser\.java$',
         r'.*Lexer\.java$',
         r'.*Token\.java$',
-        r'.*Test\.java$',  # Tests are usually small
+        r'.*Test\.java$',
         r'.*Test\.ts$',
         r'.*Test\.js$',
-        r'.*\.min\.js$',  # Minified files
+        r'.*\.min\.js$',
         r'.*\.min\.css$',
-        r'.*\.map$',  # Source maps
-        r'.*\.json$',  # Config files
+        r'.*\.map$',
+        r'.*\.json$',
         r'.*\.yaml$',
         r'.*\.yml$',
         r'.*\.xml$',
     ]
-    
+
     def __init__(
         self,
         threshold: int = 350,
         base_dir: str = "/testbed",
-        min_lines_for_shunt: int = 500,
         skip_patterns: Optional[List[str]] = None
     ):
-        """
-        Args:
-            threshold: Maximum file size (lines) to allow direct read
-            base_dir: Base directory for relative file paths
-            min_lines_for_shunt: Minimum lines to benefit from shunt
-            skip_patterns: Additional patterns to skip
-        """
         self.threshold = threshold
         self.base_dir = base_dir
-        self.min_lines_for_shunt = min_lines_for_shunt
         self.skip_patterns = self.SKIP_PATTERNS + (skip_patterns or [])
         self._stats = {
             "files_checked": 0,
             "files_intercepted": 0,
             "files_skipped_small": 0,
             "files_skipped_pattern": 0,
+            "files_skipped_targeted_read": 0,
             "files_delegated": 0,
             "files_read_direct": 0
         }
-    
+
     def check_command(self, command: str) -> Tuple[bool, Optional[str], Optional[str]]:
-        """
-        Check if a command reads a large file
-        
-        Returns:
-            Tuple of (should_intercept, file_path, command_type)
-        """
         self._stats["files_checked"] += 1
-        
-        # Skip piped commands (e.g., "cat file | grep pattern")
+
         if '|' in command:
             return False, None, None
-        
-        # Skip commands with output redirection (e.g., "cat file > out")
         if '>' in command or '>>' in command:
             return False, None, None
-        
-        for pattern, cmd_type in self.FILE_READ_PATTERNS:
+
+        for pattern, cmd_type, has_numeric_arg in self.FILE_READ_PATTERNS:
             match = re.search(pattern, command)
-            if match:
+            if not match:
+                continue
+
+            if has_numeric_arg:
+                num_str = match.group(1) or match.group(2)
+                file_path = match.group(3)
+                requested_lines = int(num_str) if num_str else self.DEFAULT_HEAD_TAIL_LINES
+            else:
                 file_path = match.group(1)
-                
-                # Resolve relative paths
-                if not os.path.isabs(file_path):
-                    file_path = os.path.join(self.base_dir, file_path)
-                
-                # Check if file exists
-                if not os.path.exists(file_path):
-                    return False, None, None
-                
-                # Check if we should skip this file
-                should_skip, reason = self._should_skip(file_path)
-                if should_skip:
-                    logger.debug(f"Skipping {file_path}: {reason}")
-                    return False, None, None
-                
-                # Check file size
-                lines = self._get_file_lines(file_path)
-                if lines is not None and lines > self.threshold:
-                    self._stats["files_intercepted"] += 1
-                    logger.info(f"Intercepted {cmd_type} on {file_path} ({lines} lines > {self.threshold})")
-                    return True, file_path, cmd_type
-        
+                requested_lines = None
+                if cmd_type in ("head", "tail"):
+                    requested_lines = self.DEFAULT_HEAD_TAIL_LINES
+
+            if not os.path.isabs(file_path):
+                file_path = os.path.join(self.base_dir, file_path)
+
+            if not os.path.exists(file_path):
+                return False, None, None
+
+            if requested_lines is not None and requested_lines <= self.threshold:
+                self._stats["files_skipped_targeted_read"] += 1
+                logger.debug(f"Skipping {file_path}: targeted read of {requested_lines} lines")
+                return False, None, None
+
+            should_skip, reason = self._should_skip(file_path)
+            if should_skip:
+                logger.debug(f"Skipping {file_path}: {reason}")
+                return False, None, None
+
+            lines = self._get_file_lines(file_path)
+            if lines is not None and lines > self.threshold:
+                self._stats["files_intercepted"] += 1
+                logger.info(f"Intercepted {cmd_type} on {file_path} ({lines} lines > {self.threshold})")
+                return True, file_path, cmd_type
+            elif lines is not None:
+                self._stats["files_skipped_small"] += 1
+
         return False, None, None
-    
+
     def _should_skip(self, file_path: str) -> Tuple[bool, str]:
-        """
-        Check if file should be skipped (small, pattern match, etc.)
-        
-        Returns:
-            Tuple of (should_skip, reason)
-        """
-        # Check file size
-        lines = self._get_file_lines(file_path)
-        if lines is not None and lines < self.min_lines_for_shunt:
-            self._stats["files_skipped_small"] += 1
-            return True, f"Too small ({lines} lines < {self.min_lines_for_shunt})"
-        
-        # Check skip patterns
         for pattern in self.skip_patterns:
             if re.match(pattern, file_path, re.IGNORECASE):
                 self._stats["files_skipped_pattern"] += 1
                 return True, f"Matches skip pattern: {pattern}"
-        
         return False, ""
-    
+
     def _get_file_lines(self, file_path: str) -> Optional[int]:
-        """Get the number of lines in a file"""
         try:
-            # First try wc -l
             result = subprocess.run(
                 ["wc", "-l", file_path],
                 capture_output=True,
@@ -153,38 +135,37 @@ class ShuntInterceptor:
             )
             if result.returncode == 0:
                 return int(result.stdout.split()[0])
-            
-            # Fallback: read file and count lines
             with open(file_path, 'r', errors='ignore') as f:
                 return sum(1 for _ in f)
-                
         except (subprocess.TimeoutExpired, FileNotFoundError, PermissionError):
             return None
-    
+
     def get_file_content(self, file_path: str) -> Optional[str]:
-        """Read file content for delegation"""
         try:
             with open(file_path, 'r', errors='ignore') as f:
                 return f.read()
         except (FileNotFoundError, PermissionError):
             return None
-    
+
     def get_stats(self) -> dict:
-        """Return interception statistics"""
         stats = self._stats.copy()
         total = stats["files_checked"]
         if total > 0:
             stats["interception_rate"] = stats["files_intercepted"] / total * 100
-            stats["skip_rate"] = (stats["files_skipped_small"] + stats["files_skipped_pattern"]) / total * 100
+            stats["skip_rate"] = (
+                stats["files_skipped_small"]
+                + stats["files_skipped_pattern"]
+                + stats["files_skipped_targeted_read"]
+            ) / total * 100
         return stats
-    
+
     def reset_stats(self):
-        """Reset statistics"""
         self._stats = {
             "files_checked": 0,
             "files_intercepted": 0,
             "files_skipped_small": 0,
             "files_skipped_pattern": 0,
+            "files_skipped_targeted_read": 0,
             "files_delegated": 0,
             "files_read_direct": 0
         }

@@ -19,7 +19,6 @@ class TestHookEvals(unittest.TestCase):
     def setUp(self):
         self.interceptor = ShuntInterceptor(
             threshold=350,
-            min_lines_for_shunt=500,
             base_dir="/tmp/shunt_test"
         )
         # Create test files
@@ -36,6 +35,10 @@ class TestHookEvals(unittest.TestCase):
         # Large file (>350 lines)
         with open("/tmp/shunt_test/large_file.java", "w") as f:
             f.write("// Large file\n" * 500)
+        
+        # Medium file (400 lines — above threshold, below the old bugged 500-line effective cutoff)
+        with open("/tmp/shunt_test/medium_file.java", "w") as f:
+            f.write("// Medium file\n" * 400)
         
         # Small file (<350 lines)
         with open("/tmp/shunt_test/small_file.java", "w") as f:
@@ -72,16 +75,16 @@ class TestHookEvals(unittest.TestCase):
         self.assertFalse(should_intercept)
     
     def test_head_large_file(self):
-        """Test: head on large file should be intercepted"""
-        command = "head -100 /tmp/shunt_test/large_file.java"
+        """Test: head requesting > threshold lines on large file should be intercepted"""
+        command = "head -400 /tmp/shunt_test/large_file.java"
         should_intercept, file_path, cmd_type = self.interceptor.check_command(command)
         
         self.assertTrue(should_intercept)
         self.assertEqual(cmd_type, "head")
     
     def test_tail_large_file(self):
-        """Test: tail on large file should be intercepted"""
-        command = "tail -50 /tmp/shunt_test/large_file.java"
+        """Test: tail requesting > threshold lines on large file should be intercepted"""
+        command = "tail -400 /tmp/shunt_test/large_file.java"
         should_intercept, file_path, cmd_type = self.interceptor.check_command(command)
         
         self.assertTrue(should_intercept)
@@ -131,6 +134,29 @@ class TestHookEvals(unittest.TestCase):
         
         self.assertTrue(should_intercept)
         self.assertTrue(os.path.isabs(file_path))
+    
+    def test_medium_file_intercepted(self):
+        """Test: 400-line file is intercepted (proves old 500-line cutoff bug is fixed)"""
+        command = "cat /tmp/shunt_test/medium_file.java"
+        should_intercept, file_path, cmd_type = self.interceptor.check_command(command)
+        
+        self.assertTrue(should_intercept)
+        self.assertEqual(file_path, "/tmp/shunt_test/medium_file.java")
+        self.assertEqual(cmd_type, "cat")
+    
+    def test_targeted_read_not_intercepted(self):
+        """Test: head -50 on a large file is a targeted read, NOT intercepted"""
+        command = "head -50 /tmp/shunt_test/large_file.java"
+        should_intercept, file_path, cmd_type = self.interceptor.check_command(command)
+        
+        self.assertFalse(should_intercept)
+    
+    def test_plain_head_defaults_to_targeted(self):
+        """Test: plain head (no number, defaults to ~10 lines) is NOT intercepted"""
+        command = "head /tmp/shunt_test/large_file.java"
+        should_intercept, file_path, cmd_type = self.interceptor.check_command(command)
+        
+        self.assertFalse(should_intercept)
     
     def test_statistics_tracking(self):
         """Test: Statistics should be tracked correctly"""

@@ -8,6 +8,9 @@ env/
 venv/
 .venv/
 
+# Backups
+*.bak
+
 # Results (large files, keep local)
 results/
 eval_results.json
